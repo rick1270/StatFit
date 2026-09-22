@@ -62,8 +62,8 @@ CHANGELOG.md           — session changes and decisions
 1. **Undecoded FIT fields** — fitparse can't map every field to a name; these surface as
    `unknown_<N>` with real values but no label. Cross-reference Garmin's FIT SDK profile if a
    specific one turns out to matter.
-2. **Not yet run against real credentials/Sheet** — first live run still pending as of initial
-   scaffold (2026-09-21).
+2. ~~Not yet run against real credentials/Sheet~~ — first live run completed 2026-09-22 (271
+   activities, 366 sleep days, 117 weight entries synced over a 1-year backfill).
 
 ---
 

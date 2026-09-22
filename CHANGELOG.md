@@ -1,5 +1,22 @@
 # StatFit Changelog
 
+## Session 2026-09-22 (first live run)
+
+### Changes
+- Set up real credentials: `.env` (Garmin login) and `service_account.json` (Google service
+  account key), both gitignored as intended.
+- Created the target Google Sheet and shared it with the service account's `client_email`.
+- **First live sync completed**: 271 activities, 366 sleep days, 117 weight entries synced over
+  a 1-year backfill (`INITIAL_SYNC_DAYS=365`). Resolves the "not yet run against real
+  credentials" item from Known Issues.
+- Noted for later: Garmin's mobile login endpoint returned a transient `429 Too Many Requests`
+  on an early attempt (IP rate-limited); it cleared on retry. Not investigated further since it
+  self-resolved, but worth knowing if login starts failing repeatedly.
+- `state/sync_state.json` now holds `last_synced_date: 2026-09-22` — future runs sync
+  incrementally from there.
+
+---
+
 ## Session 2026-09-21 (v0.1 — initial scaffold)
 
 ### Changes
