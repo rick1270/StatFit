@@ -1,5 +1,28 @@
 # StatFit Changelog
 
+## Session 2026-09-23 (Daily tab)
+
+### Changes
+- Added `statfit/daily.py` + `build_daily.py`: builds a derived **Daily** tab, one row per
+  calendar day (newest first), combining sleep/weight/primary-activity metrics from the raw
+  Activities/Sleep/Weight tabs. Rationale: those source tabs are 70-100 columns wide and
+  awkward to scan or read programmatically for recent data.
+  - Fully rebuilt (clear + rewrite) on every run rather than upserted — it's a computed view,
+    not synced source data. Not wired into `sync.run()`; run manually.
+  - Primary-activity selection per day: prefers `running`/`treadmill_running`, else longest
+    `total_timer_time`; fishing/diving never count as primary, only set `fished`/`dove` flags.
+  - Found and worked around a `sync_weight()` quirk: the Weight tab's `date` column ends up as
+    epoch-ms instead of a date string, because `_flatten_scalars(entry)` overwrites the
+    `calendarDate`-derived `date` field with the entry's own raw `date` field. `daily.py` joins
+    on `calendarDate` instead rather than fixing the upstream field ordering.
+  - Verified output by hand: pace math, fishing-day/multi-activity-day edge cases, blank-field
+    handling for days with only sleep/weight (no activity) all checked out.
+- Confirmed (not a StatFit bug): Weight has no rows after 2026-08-05 — Rick is tracking that
+  separately as an outside/device issue. `avgOvernightHrv`/`hrvStatus` are only ~46% populated
+  even within 2026, suggesting a device/feature that came online partway through the year.
+
+---
+
 ## Session 2026-09-22 (first live run)
 
 ### Changes

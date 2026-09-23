@@ -39,12 +39,15 @@ states that matter. Whichever is currently checked out locally is "production" f
 
 ```
 main.py               — entry point, calls statfit.sync.run()
+build_daily.py         — entry point, calls statfit.daily.build_daily() to (re)build the Daily tab
 statfit/
   config.py            — loads .env, defines paths (state/, data/fit_files/)
   garmin_client.py      — Garmin Connect login (cached session), activity/sleep/weight fetch, FIT download
   fit_decoder.py         — decodes FIT session + lap messages into dicts (fitparse)
   sheets_writer.py        — upserts rows into Google Sheet tabs, growing columns dynamically
   sync.py                  — orchestrates incremental sync, tracks state/sync_state.json
+  daily.py                  — builds the "Daily" tab: one row per calendar day, derived from
+                               Activities/Sleep/Weight (see Daily Tab section below)
 requirements.txt       — pinned dependencies (regenerate with `pip freeze` after adding a package)
 .env.example           — template for required secrets
 CLAUDE.md              — this file
@@ -56,6 +59,29 @@ CHANGELOG.md           — session changes and decisions
 `main.py` is run once.
 
 ---
+
+## Daily Tab
+
+`build_daily.py` (`statfit/daily.py`) builds a derived **"Daily"** tab: one row per calendar day,
+newest first, pulling from the raw Activities/Sleep/Weight tabs (which are ~70-100 columns wide
+and awkward to read programmatically). Unlike the other tabs, Daily is fully **rebuilt from
+scratch on every run** (clear + rewrite), not upserted — it's a computed view, not synced source
+data.
+
+- Run manually after `main.py` syncs new data: `./venv/bin/python build_daily.py`.
+- Not currently wired into `sync.run()` — rerun it by hand when you want the Daily tab refreshed.
+- Primary-activity selection per day: prefers `running`/`treadmill_running`; otherwise the
+  longest `total_timer_time`. Fishing/diving activities never count as primary — they only set
+  the `fished`/`dove` flags. Activity-derived columns (distance, pace, HR, etc.) reflect the
+  primary activity only, not an aggregate across multiple activities that day.
+- Weight's `date` column is epoch-ms (a `sync.py` field-ordering quirk — `sync_weight()` sets
+  `date` from `calendarDate` but then overwrites it with the entry's own `date` field during
+  `_flatten_scalars`), so `daily.py` joins on `calendarDate` instead. Known, not worth fixing
+  since `calendarDate` works fine.
+- Known gap as of 2026-09-22: Weight has no rows after 2026-08-05 — Rick is tracking that
+  separately (upstream/device issue, not a StatFit bug). `avgOvernightHrv`/`hrvStatus` are also
+  only partially populated even within 2026 (~46% of rows) — likely a device/feature that came
+  online partway through the year.
 
 ## Known Issues
 

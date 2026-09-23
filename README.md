@@ -21,6 +21,10 @@ temperature, precise laps, etc.).
   set isn't fixed up front — this is v1's "get everything, narrow down later" approach.
 - `statfit/sync.py` — orchestrates an incremental sync: tracks the last-synced date in
   `state/sync_state.json` and only fetches new data since then.
+- `statfit/daily.py` — builds a derived **Daily** tab: one row per calendar day (newest first),
+  combining sleep, weight, and primary-activity metrics from the raw Activities/Sleep/Weight tabs
+  into a compact, easy-to-scan view. Fully rebuilt each run via `build_daily.py` (not incremental
+  like the other tabs).
 
 ## Setup
 
@@ -45,6 +49,12 @@ temperature, precise laps, etc.).
    ```
    First run pulls `INITIAL_SYNC_DAYS` (default 90) days of history. Subsequent runs only sync
    since the last recorded sync date.
+
+5. **Build the Daily tab** (optional, run after syncing):
+   ```
+   ./venv/bin/python build_daily.py
+   ```
+   Rebuilds the compact one-row-per-day view from whatever's currently in Activities/Sleep/Weight.
 
 ## Notes
 
