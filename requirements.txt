@@ -8,8 +8,13 @@ executing==2.2.1
 fitparse==1.2.0
 garminconnect==0.3.16
 garth==0.8.0
+google-api-core==2.39.0
 google-auth==2.58.0
 google-auth-oauthlib==1.4.1
+google-cloud-core==2.7.0
+google-cloud-storage==3.15.0
+google-crc32c==1.9.0
+google-resumable-media==2.10.2
 googleapis-common-protos==1.75.3
 gspread==6.2.1
 idna==3.20
@@ -25,6 +30,7 @@ opentelemetry-proto==1.44.0
 opentelemetry-sdk==1.44.0
 opentelemetry-semantic-conventions==0.65b0
 packaging==26.3
+proto-plus==1.28.4
 protobuf==7.36.2
 pyasn1==0.6.4
 pyasn1_modules==0.4.2

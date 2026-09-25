@@ -25,6 +25,11 @@ temperature, precise laps, etc.).
   combining sleep, weight, and primary-activity metrics from the raw Activities/Sleep/Weight tabs
   into a compact, easy-to-scan view. Fully rebuilt each run via `build_daily.py` (not incremental
   like the other tabs).
+- `cloud_run_entrypoint.py` / `statfit/cloud_state.py` — hourly hosted execution via a Google
+  Cloud Run Job (see Deployment section in `CLAUDE.md`). Since Cloud Run Jobs don't keep a local
+  disk between runs, `cloud_state.py` mirrors `state/` to/from a GCS bucket before and after each
+  run. `sheets_writer.connect_sheet()` uses the service account JSON key locally, but falls back
+  to Application Default Credentials in the cloud, so no key file needs to leave the laptop.
 
 ## Setup
 

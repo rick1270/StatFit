@@ -1,5 +1,35 @@
 # StatFit Changelog
 
+## Session 2026-09-25 (Cloud Run hourly execution — code, not yet provisioned)
+
+### Changes
+- Rick wants StatFit running hourly without keeping a local machine on. Chose Google Cloud Run
+  Jobs + Cloud Scheduler over local launchd/cron, GitHub Actions, or AWS — stays in the existing
+  GCP project (`statfit-509421`) that already hosts the Sheets service account.
+- **Design decision**: reuse `statfit-sync@statfit-509421.iam.gserviceaccount.com` as the Cloud
+  Run Job's runtime identity instead of creating a new service account. No need to re-share the
+  Sheet, and no JSON key material has to leave the laptop — the job authenticates via Application
+  Default Credentials in the cloud. `statfit/sheets_writer.py::connect_sheet()` now checks
+  whether the local key file exists and falls back to `google.auth.default()` if not.
+- Added `statfit/cloud_state.py` (`download_state()`/`upload_state()`) and
+  `cloud_run_entrypoint.py`: Cloud Run Jobs have no persistent disk between executions, so state
+  (`sync_state.json`, cached garth session) round-trips through a GCS bucket each run. State is
+  always uploaded in a `finally`, even on partial sync failure, so the garth session and
+  watermark aren't lost. `data/fit_files/` intentionally does not round-trip — it was already
+  ephemeral/redownloaded-per-run locally.
+- Added `Dockerfile` + `.dockerignore` for the container image (deployed via `gcloud run jobs
+  deploy --source .`, which builds through Cloud Build automatically).
+- Added `google-cloud-storage` to `requirements.txt` (regenerated via `pip freeze`).
+- **Not yet provisioned**: the actual GCP resources (state bucket, two Secret Manager secrets
+  for Garmin email/password, the Cloud Run Job, the Cloud Scheduler job) don't exist yet —
+  `gcloud` CLI isn't installed locally, that's the next step. Local `main.py`/`build_daily.py`
+  are unaffected and still what's actually running today.
+- Flagged as a known risk, not a blocker: Cloud Run's outbound IP is a shared Google NAT range
+  rather than a dedicated IP, which could interact with Garmin's rate-limiting differently than
+  the local machine's home IP (we already hit one transient 429 locally on 2026-09-22).
+
+---
+
 ## Session 2026-09-23 (Daily tab)
 
 ### Changes

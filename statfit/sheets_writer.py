@@ -1,5 +1,7 @@
+from pathlib import Path
 from typing import Any
 
+import google.auth
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -9,7 +11,14 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 
 def connect_sheet() -> gspread.Spreadsheet:
-    creds = Credentials.from_service_account_file(config.GOOGLE_SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    """Locally, authenticate with the service account JSON key. In Cloud Run
+    (where no key file is shipped), fall back to Application Default
+    Credentials — the job runs as the same service account, so no key
+    material needs to leave the laptop."""
+    if Path(config.GOOGLE_SERVICE_ACCOUNT_FILE).exists():
+        creds = Credentials.from_service_account_file(config.GOOGLE_SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    else:
+        creds, _ = google.auth.default(scopes=SCOPES)
     client = gspread.authorize(creds)
     return client.open_by_key(config.GOOGLE_SHEET_ID)
 

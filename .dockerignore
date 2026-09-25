@@ -1,0 +1,9 @@
+venv/
+state/
+data/
+.env
+service_account.json
+.git/
+__pycache__/
+*.pyc
+dev_Instructions
