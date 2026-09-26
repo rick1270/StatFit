@@ -1,5 +1,36 @@
 # StatFit Changelog
 
+## Session 2026-09-26 (Cloud Run hourly execution — provisioned and live)
+
+### Changes
+- Finished provisioning the GCP infrastructure designed in the previous session:
+  - Billing was unlinked on `statfit-509421` (an old billing account existed but was closed);
+    Rick linked a new open billing account.
+  - Enabled Cloud Run, Cloud Build, Cloud Scheduler, Secret Manager, Storage APIs.
+  - Created `gs://statfit-509421-state`, seeded it with the current local `state/` (sync
+    watermark + cached garth session) so the first cloud run resumed incrementally instead of
+    re-logging in and re-backfilling a year of history.
+  - Created Secret Manager secrets `statfit-garmin-email`/`statfit-garmin-password`; granted
+    `statfit-sync@...` service account `secretAccessor` on both plus `storage.objectAdmin` on
+    the state bucket.
+  - Deployed Cloud Run Job `statfit-sync` via `gcloud run jobs deploy --source .` (Cloud Build
+    handled the container build automatically, no manual Docker/Artifact Registry steps).
+  - Created Cloud Scheduler job `statfit-hourly` (`0 * * * *`), OAuth-triggering the Cloud Run
+    Job as the same service account (granted `run.invoker` on the job).
+- **Verified end-to-end**: a direct `gcloud run jobs execute` completed successfully (correctly
+  resumed from the seeded watermark, synced only new data, rebuilt Daily). Separately confirmed
+  the actual Cloud Scheduler → Cloud Run OAuth path also works (`gcloud scheduler jobs run`
+  produced a real execution, run by the service account, matching the scheduler's
+  `lastAttemptTime`).
+- Incidentally triggered two near-simultaneous executions during verification (one via direct
+  REST call testing the endpoint, one the delayed scheduler trigger landing) — both completed
+  successfully with no state corruption, confirming the sync's upsert-based design tolerates
+  accidental overlap. Not a concern for real hourly cadence, which only fires once per hour.
+- StatFit now runs hourly without any local machine needing to be on. Local `main.py`/
+  `build_daily.py` remain fully functional for dev/testing.
+
+---
+
 ## Session 2026-09-25 (Cloud Run hourly execution — code, not yet provisioned)
 
 ### Changes

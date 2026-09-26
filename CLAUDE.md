@@ -109,12 +109,10 @@ data.
 
 ## Known Issues
 
-1. **Cloud Run deployment not yet provisioned** — the code (`Dockerfile`,
-   `cloud_run_entrypoint.py`, `statfit/cloud_state.py`, ADC fallback in `sheets_writer.py`) is
-   ready as of 2026-09-25, but the actual GCP resources (state bucket, Secret Manager secrets,
-   the Cloud Run Job itself, Cloud Scheduler job) haven't been created yet — `gcloud` CLI isn't
-   installed locally. Local `main.py`/`build_daily.py` are unaffected and still the only thing
-   actually running.
+1. ~~Cloud Run deployment not yet provisioned~~ — deployed and verified 2026-09-26. Both a
+   direct `gcloud run jobs execute` and an actual Cloud Scheduler-triggered run completed
+   successfully end-to-end (synced data, rebuilt Daily, state round-tripped through GCS
+   correctly). Runs hourly on the `0 * * * *` schedule from here on.
 2. Cloud Run's outbound IP is a shared Google NAT range, not a dedicated IP — small chance this
    looks different to Garmin than the local machine's home IP and affects rate-limiting behavior
    (we already hit one transient 429 locally). Mitigated by reusing the cached garth session
