@@ -118,6 +118,17 @@ data.
    (we already hit one transient 429 locally). Mitigated by reusing the cached garth session
    (few real logins after the first) — worth knowing if login starts failing repeatedly after
    the cutover.
+3. ~~Timezone bug dropped activities recorded late at night~~ — fixed 2026-10-01.
+   `sync.py::_today()` used `datetime.date.today()`, which is the *container's* system date
+   (UTC in Cloud Run) rather than Rick's local calendar day. Since the sync watermark
+   (`sync_state.json`) advances to that date after every run, UTC midnight (8-9pm Eastern)
+   permanently excluded any activity recorded later that Eastern evening — the watermark had
+   already moved past "today" hours before the user's day was actually over. This ran
+   correctly by accident when local (`./venv`), since the Mac's system clock was already
+   Eastern. Fixed by adding `config.LOCAL_TZ` (`America/New_York`, overridable via
+   `STATFIT_TIMEZONE`) and using `datetime.now(config.LOCAL_TZ).date()` instead. Added `tzdata`
+   to `requirements.txt` since the slim container image may lack the system IANA database that
+   `zoneinfo` needs.
 3. **Undecoded FIT fields** — fitparse can't map every field to a name; these surface as
    `unknown_<N>` with real values but no label. Cross-reference Garmin's FIT SDK profile if a
    specific one turns out to matter.

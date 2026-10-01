@@ -45,6 +45,7 @@ requests-oauthlib==2.0.0
 rich==15.0.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
+tzdata==2026.4
 ua-generator==2.1.6
 urllib3==2.8.0
 wrapt==2.4.1

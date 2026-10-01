@@ -8,7 +8,7 @@ DATE_FMT = "%Y-%m-%d"
 
 
 def _today() -> datetime.date:
-    return datetime.date.today()
+    return datetime.datetime.now(config.LOCAL_TZ).date()
 
 
 def load_state() -> dict[str, str]:

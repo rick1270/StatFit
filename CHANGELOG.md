@@ -1,5 +1,32 @@
 # StatFit Changelog
 
+## Session 2026-10-01 (timezone bug — activities dropped overnight)
+
+### Changes
+- Rick reported a fishing activity from the previous night missing, and other activities
+  seeming "delayed." Root cause: `statfit/sync.py::_today()` used `datetime.date.today()`,
+  which reflects the *execution environment's* system date — UTC in the Cloud Run container,
+  not Rick's Eastern local calendar day. Ran correctly by accident when sync only ran locally
+  (the Mac's system clock is already Eastern).
+  - The sync watermark (`state/sync_state.json`'s `last_synced_date`) advances to "today" after
+    every run. In UTC, midnight is 8-9pm Eastern — so from that point each night until actual
+    local midnight, the watermark had already moved past the user's still-ongoing calendar day,
+    permanently excluding anything recorded in that ~4-hour gap (Garmin tags activities by local
+    date, not UTC).
+  - Fix: added `config.LOCAL_TZ` (`America/New_York`, overridable via `STATFIT_TIMEZONE` env
+    var) and changed `_today()` to `datetime.datetime.now(config.LOCAL_TZ).date()`. Added
+    `tzdata` to `requirements.txt` as a safety net, since minimal container base images don't
+    always ship the system IANA timezone database that `zoneinfo` depends on.
+  - Redeployed the fixed code to the Cloud Run Job.
+  - Recovery: rolled `sync_state.json` in the GCS state bucket back to `2026-09-29` (idempotent
+    — upserts by `activity_id`/`date` mean re-fetching already-synced days is harmless) so the
+    next run re-covers the gap and picks up the missing fishing activity.
+- This is a cloud-migration-specific class of bug worth remembering: anything using "today"/
+  calendar-day logic needs to be explicit about *whose* calendar day once the code runs
+  somewhere other than the user's own machine.
+
+---
+
 ## Session 2026-09-26 (Cloud Run hourly execution — provisioned and live)
 
 ### Changes
