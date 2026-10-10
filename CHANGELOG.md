@@ -1,5 +1,27 @@
 # StatFit Changelog
 
+## Session 2026-10-10 (notification-triggered sync)
+
+### Changes
+- **On-demand trigger**: added `trigger/`, a small Cloud Run service (`statfit-trigger`) that
+  starts the `statfit-sync` job when POSTed with a valid `X-StatFit-Token` header. Tasker +
+  AutoNotification on Rick's Android phone call it when Garmin Connect posts an "activity ready
+  to view" notification, so new activities land in the Sheet within minutes instead of up to an
+  hour later.
+  - Public endpoint with shared-secret auth (Secret Manager `statfit-trigger-token`) because
+    getting a Google OAuth token from Tasker is impractical. The service starts the job as its
+    own least-privilege service account `statfit-trigger@` (`run.invoker` + `run.viewer` on the
+    job only).
+  - Skips when an execution is still running (concurrent runs would race on `sync_state.json`
+    in GCS and could append duplicate Sheet rows) or started within 120s (debounces bursts of
+    notifications when several activities sync at once).
+  - Verified: bad token → 401; valid token → job started; immediate repeat → skipped.
+- **Fallback schedule**: Cloud Scheduler `statfit-hourly` changed from hourly to every 6 hours
+  (`0 */6 * * *` UTC). Kept as a safety net for missed notifications and for sleep/weight data,
+  which don't generate the activity notification. Job name left as-is to avoid recreating it.
+
+---
+
 ## Session 2026-10-01 (timezone bug — activities dropped overnight)
 
 ### Changes

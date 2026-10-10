@@ -16,7 +16,8 @@
 |---|---|
 | GitHub | `https://github.com/rick1270/StatFit` |
 | Local dev | Python venv (`./venv`) — `./venv/bin/python main.py` / `build_daily.py`, unchanged |
-| Hosted runtime | Google Cloud Run Job `statfit-sync`, GCP project `statfit-509421`, region `us-central1`, triggered hourly by Cloud Scheduler job `statfit-hourly` |
+| Hosted runtime | Google Cloud Run Job `statfit-sync`, GCP project `statfit-509421`, region `us-central1`. Triggered on demand by the `statfit-trigger` service (see below), with Cloud Scheduler job `statfit-hourly` as a fallback — despite the name it now runs every 6 hours (`0 */6 * * *` UTC) |
+| Notification trigger | Cloud Run service `statfit-trigger` (`trigger/`), URL `https://statfit-trigger-469071842624.us-central1.run.app`. Tasker + AutoNotification on Rick's Android phone POST to it when Garmin Connect posts "activity ready to view". Public (`--allow-unauthenticated`) but requires header `X-StatFit-Token` matching Secret Manager `statfit-trigger-token`. Runs as `statfit-trigger@statfit-509421.iam.gserviceaccount.com` (only `run.invoker` + `run.viewer` on the `statfit-sync` job). Skips if an execution is running (concurrent runs would race on `sync_state.json` and could duplicate Sheet rows) or started within `DEBOUNCE_SECONDS` (120) |
 | Local secrets | `.env` (Garmin email/password, Sheet ID, service account file path), `service_account.json` (Google service account key) — both gitignored |
 | Cloud secrets | Secret Manager: `statfit-garmin-email`, `statfit-garmin-password`. No JSON key in the cloud — the job runs as `statfit-sync@statfit-509421.iam.gserviceaccount.com` itself (Application Default Credentials); see `statfit/sheets_writer.py::connect_sheet()` |
 | Cloud state | GCS bucket `gs://statfit-509421-state/state/` mirrors what `state/` holds locally (`sync_state.json`, cached garth session) — Cloud Run Jobs have no persistent disk between executions, so `cloud_run_entrypoint.py` pulls it down before syncing and pushes it back up after, always (even on partial failure) |
@@ -31,6 +32,14 @@ gcloud run jobs deploy statfit-sync --source . --region us-central1 \
   --max-retries 0 --task-timeout 600
 ```
 (`--source .` builds via Cloud Build automatically — no manual Docker/Artifact Registry steps.)
+
+Redeploying the trigger service (only needed when `trigger/` changes):
+```
+gcloud run deploy statfit-trigger --source trigger --region us-central1 \
+  --service-account statfit-trigger@statfit-509421.iam.gserviceaccount.com \
+  --set-secrets TRIGGER_TOKEN=statfit-trigger-token:latest \
+  --allow-unauthenticated --max-instances 1 --memory 256Mi
+```
 
 Manual trigger: `gcloud run jobs execute statfit-sync --region us-central1 --wait`
 Logs: Cloud Run Console → Jobs → `statfit-sync` → Executions (or `gcloud logging read`).
@@ -56,6 +65,9 @@ states that matter. Whichever is currently checked out locally is "production" f
 ```
 main.py               — entry point, calls statfit.sync.run()
 build_daily.py         — entry point, calls statfit.daily.build_daily() to (re)build the Daily tab
+trigger/                — statfit-trigger Cloud Run service (main.py, Dockerfile, requirements.txt):
+                          token-checked HTTP endpoint that starts the sync job; own image,
+                          not part of the job's image
 cloud_run_entrypoint.py — Cloud Run Job entry point: pulls state/ from GCS, runs sync + daily
                           build, pushes state/ back, always (see Deployment section above)
 Dockerfile              — container image for the Cloud Run Job
@@ -112,7 +124,8 @@ data.
 1. ~~Cloud Run deployment not yet provisioned~~ — deployed and verified 2026-09-26. Both a
    direct `gcloud run jobs execute` and an actual Cloud Scheduler-triggered run completed
    successfully end-to-end (synced data, rebuilt Daily, state round-tripped through GCS
-   correctly). Runs hourly on the `0 * * * *` schedule from here on.
+   correctly). Runs hourly on the `0 * * * *` schedule from here on. (Since 2026-10-10:
+   notification-triggered, with a 6-hourly fallback — see Deployment.)
 2. Cloud Run's outbound IP is a shared Google NAT range, not a dedicated IP — small chance this
    looks different to Garmin than the local machine's home IP and affects rate-limiting behavior
    (we already hit one transient 429 locally). Mitigated by reusing the cached garth session
