@@ -8,7 +8,12 @@ import fitparse
 # thousands of rows per activity and Sheets isn't built for it. Session and
 # lap summaries already carry the expanded metrics (running dynamics,
 # training effect, power, respiration, etc.) that Strava's API doesn't
-# expose. Revisit if a specific need for raw streams comes up.
+# expose. Revisit if a specific need for raw streams comes up. Records are
+# only read to derive a few summary numbers (see _hr_halves).
+
+# A gap between HR samples longer than this is treated as a pause rather than
+# held at the last reading.
+MAX_SAMPLE_GAP_S = 60
 
 
 def _serialize(value: Any) -> Any:
@@ -28,6 +33,34 @@ def _message_to_dict(message: fitparse.records.DataMessage) -> dict[str, Any]:
     return {field: value for field, value in serialized if value is not None}
 
 
+def _hr_halves(fit_file: fitparse.FitFile) -> tuple[int, int] | None:
+    """Time-weighted average HR over the first and second half of the
+    activity, split at the midpoint between the first and last HR sample.
+    Shows cardiac drift ("HR crept up 15 bpm") on steady efforts."""
+    points = []
+    for m in fit_file.get_messages("record"):
+        values = m.get_values()
+        if values.get("timestamp") is not None and values.get("heart_rate") is not None:
+            points.append((values["timestamp"], values["heart_rate"]))
+    if len(points) < 2:
+        return None
+
+    midpoint = points[0][0] + (points[-1][0] - points[0][0]) / 2
+    weighted = [0.0, 0.0]
+    seconds = [0.0, 0.0]
+    for (t, hr), (t_next, _) in zip(points, points[1:]):
+        if (t_next - t).total_seconds() > MAX_SAMPLE_GAP_S:
+            continue
+        for half, (start, end) in enumerate(((t, min(t_next, midpoint)), (max(t, midpoint), t_next))):
+            d = (end - start).total_seconds()
+            if d > 0:
+                weighted[half] += hr * d
+                seconds[half] += d
+    if not all(seconds):
+        return None
+    return round(weighted[0] / seconds[0]), round(weighted[1] / seconds[1])
+
+
 def decode_fit(fit_path: Path) -> dict[str, Any]:
     """Decode a FIT file into an activity-level session summary plus a list
     of lap summaries. Field sets vary by device/activity type — we return
@@ -42,6 +75,9 @@ def decode_fit(fit_path: Path) -> dict[str, Any]:
         raise ValueError(f"No session message found in {fit_path}")
 
     session = sessions[0]
+    halves = _hr_halves(fit_file)
+    if halves:
+        session["hr_first_half"], session["hr_second_half"] = halves
     for lap_index, lap in enumerate(laps, start=1):
         lap["lap_index"] = lap_index
 

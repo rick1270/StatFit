@@ -1,5 +1,32 @@
 # StatFit Changelog
 
+## Session 2026-10-11 (Daily additions + Weekly tab)
+
+### Changes
+- **Daily tab new columns**: `body_fat_pct`, `muscle_lbs` (from Weight), `cadence_spm`
+  (steps/min = 2 × (`avg_running_cadence` + `avg_fractional_cadence`), since FIT cadence counts
+  one foot), and `hr_first_half` / `hr_second_half` / `hr_drift` for the primary activity.
+  Column order changed — anything referencing Daily columns by letter will have shifted.
+- **First- vs second-half HR**: computed in `fit_decoder._hr_halves()` from the FIT record
+  stream (time-weighted, split at the time midpoint), stored as two new Activities columns.
+  Chose records over laps because 42 of 180 runs have a single lap and lap boundaries don't line
+  up with the halfway point. Raw records still never go to Sheets.
+- **Backfill**: one-off script decoded all 283 existing activities (local FIT files, plus 9 only
+  ever synced in the cloud, downloaded fresh) — 279 got HR halves, 4 have no HR data. Written via
+  new `sheets_writer.update_columns()`, which sets only the named cells; `upsert_rows()` would
+  have rewritten whole rows and turned existing numbers into text.
+- **Weekly tab**: new `daily.build_weekly()` — runs, miles, run_min, avg_pace, time-weighted
+  avg_hr, long_run_mi, avg_cadence_spm per Monday-starting week (55 weeks). Built by both
+  `build_daily.py` and `cloud_run_entrypoint.py`.
+- Redeployed `statfit-sync` before writing the backfill, so a run of the old code couldn't
+  blank the new HR columns on re-synced rows. Verified with a manual cloud execution: new
+  activity got HR halves, Daily (385 rows) and Weekly (55 rows) rebuilt.
+- Noted: the 2026-10-03 treadmill run shows 54 bpm drift (129 → 183) — HR jumped ~35 bpm within
+  a minute at near-identical lap splits, which looks like wrist optical HR locking onto cadence
+  rather than true drift. Not filtered; worth keeping in mind when reading `hr_drift`.
+
+---
+
 ## Session 2026-10-10 (notification-triggered sync)
 
 ### Changes

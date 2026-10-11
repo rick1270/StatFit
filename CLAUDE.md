@@ -80,8 +80,9 @@ statfit/
                              connect_sheet() uses the service account JSON key locally, falls
                              back to Application Default Credentials in Cloud Run
   sync.py                  — orchestrates incremental sync, tracks state/sync_state.json
-  daily.py                  — builds the "Daily" tab: one row per calendar day, derived from
-                               Activities/Sleep/Weight (see Daily Tab section below)
+  daily.py                  — builds the "Daily" tab (one row per calendar day) and "Weekly" tab
+                               (one row per week of runs), derived from Activities/Sleep/Weight
+                               (see Daily Tab section below)
   cloud_state.py             — download_state()/upload_state(): mirrors state/ to/from GCS,
                                used only by cloud_run_entrypoint.py
 requirements.txt       — pinned dependencies (regenerate with `pip freeze` after adding a package)
@@ -104,8 +105,29 @@ and awkward to read programmatically). Unlike the other tabs, Daily is fully **r
 scratch on every run** (clear + rewrite), not upserted — it's a computed view, not synced source
 data.
 
-- Run manually after `main.py` syncs new data: `./venv/bin/python build_daily.py`.
-- Not currently wired into `sync.run()` — rerun it by hand when you want the Daily tab refreshed.
+- Run manually after `main.py` syncs new data: `./venv/bin/python build_daily.py` (builds both
+  Daily and Weekly). In the cloud, `cloud_run_entrypoint.py` rebuilds both after every sync.
+- Not wired into `sync.run()` itself — local runs need `build_daily.py` by hand.
+- Body composition: `body_fat_pct` is Weight.`bodyFat` (already %); `muscle_lbs` is
+  Weight.`muscleMass` (grams) / 453.592.
+- `cadence_spm` is steps/min: FIT `avg_running_cadence` counts one foot, so it's
+  2 × (`avg_running_cadence` + `avg_fractional_cadence`).
+- `hr_first_half` / `hr_second_half` come from Activities columns of the same name, computed by
+  `fit_decoder._hr_halves()` from the per-second record stream at decode time (time-weighted,
+  split at the midpoint between first and last HR sample; gaps > 60s treated as pauses).
+  `hr_drift` = second − first. Laps weren't usable for this: ~25% of runs have a single lap and
+  lap boundaries rarely fall at the halfway point. Backfilled for all existing activities on
+  2026-10-11 via `sheets_writer.update_columns()`. Caveat: wrist optical HR can lock onto cadence
+  (~170-180 spm), which shows up as a sudden HR jump at steady pace — e.g. the 2026-10-03 run's
+  54 bpm "drift". Not filtered.
+
+### Weekly Tab
+
+Also built by `daily.py` (`build_weekly()`), also cleared and rewritten every run. One row per
+Monday-starting week, newest first, with zero rows kept for weeks without runs so gaps are
+visible. Aggregates **every** `running`/`treadmill_running` activity that week (not just each
+day's primary). Columns: `week_start`, `runs`, `miles`, `run_min`, `avg_pace`, `avg_hr`
+(time-weighted by `total_timer_time`), `long_run_mi`, `avg_cadence_spm` (time-weighted).
 - Primary-activity selection per day: prefers `running`/`treadmill_running`; otherwise the
   longest `total_timer_time`. Fishing/diving activities never count as primary — they only set
   the `fished`/`dove` flags. Activity-derived columns (distance, pace, HR, etc.) reflect the
@@ -153,7 +175,8 @@ data.
 ## Key Invariants
 
 - Raw per-second FIT record streams are **never** synced to Sheets — only `session` and `lap`
-  summary messages. Sheets isn't built for thousands of rows per activity; revisit only if a
+  summary messages, plus a few numbers derived from records at decode time (currently
+  `hr_first_half`/`hr_second_half`). Sheets isn't built for thousands of rows per activity; revisit only if a
   specific need for second-by-second data comes up.
 - Sheet columns are **not fixed** — `sheets_writer.upsert_rows()` appends new columns as new FIT
   fields are encountered across activity types/devices. This is a deliberate v1 choice: pull

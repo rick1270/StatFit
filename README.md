@@ -23,8 +23,10 @@ temperature, precise laps, etc.).
   `state/sync_state.json` and only fetches new data since then.
 - `statfit/daily.py` — builds a derived **Daily** tab: one row per calendar day (newest first),
   combining sleep, weight, and primary-activity metrics from the raw Activities/Sleep/Weight tabs
-  into a compact, easy-to-scan view. Fully rebuilt each run via `build_daily.py` (not incremental
-  like the other tabs).
+  into a compact, easy-to-scan view, including body fat / muscle mass, running cadence (steps/min)
+  and first- vs second-half HR (drift). Also builds a **Weekly** tab (runs, miles, time, pace,
+  time-weighted avg HR, long run, cadence per Monday-starting week). Both fully rebuilt each run
+  via `build_daily.py` (not incremental like the other tabs).
 - `cloud_run_entrypoint.py` / `statfit/cloud_state.py` — hosted execution via a Google
   Cloud Run Job, triggered on demand when Garmin Connect notifies that an activity is ready
   (plus a 6-hourly fallback schedule) (see Deployment section in `CLAUDE.md`). Since Cloud Run Jobs don't keep a local
