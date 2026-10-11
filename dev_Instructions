@@ -1,0 +1,46 @@
+First, list the actual tab names — don't assume the names above.
+
+Build a new tab called "Daily": ONE ROW PER CALENDAR DAY, sorted
+NEWEST FIRST. This is the key requirement — the source tabs have
+~100 columns each and get truncated before reaching recent data
+when read programmatically.
+
+Columns, in this order:
+
+  date                  (YYYY-MM-DD)
+  resting_hr            Sleep.restingHeartRate
+  sleep_hours           Sleep.sleepTimeSeconds / 3600, 2 decimals
+  deep_hours            Sleep.deepSleepSeconds / 3600
+  rem_hours             Sleep.remSleepSeconds / 3600
+  bedtime               time-of-day from Sleep.sleepStartTimestampLocal (HH:MM)
+  sleep_stress          Sleep.avgSleepStress
+  overnight_hrv         Sleep.avgOvernightHrv
+  weight_lbs            Weight.weight / 453.592, 1 decimal
+  activity_type         primary workout that day (see rule below)
+  distance_mi           total_distance / 1609.34, 2 decimals
+  duration_min          total_timer_time / 60, 1 decimal
+  pace_min_mi           duration_min / distance_mi, formatted M:SS
+  avg_hr                Activities.avg_heart_rate
+  max_hr                Activities.max_heart_rate
+  temp_f                Activities.avg_temperature (Celsius) * 9/5 + 32
+  training_effect       Activities.total_training_effect
+  fished                TRUE if any activity_type contains "fishing"
+  dove                  TRUE if any activity_type contains "diving"
+  activity_count        number of activities that day
+
+Rules:
+- Date alignment: Sleep rows use calendarDate (the wake date).
+  Activities use start_time_local. Weight uses calendarDate.
+- Primary activity for the day: prefer running or treadmill_running;
+  otherwise the activity with the longest total_timer_time.
+  Fishing and diving never count as primary — they only set the
+  fished/dove flags.
+- Blank is fine for any missing value. Do not carry values forward.
+- Include every date that has data in ANY of the three source tabs.
+- Ignore all unknown_### columns entirely.
+
+Also report back:
+1. The date range covered, and whether Weight has any rows after
+   2026-08-05 (it appeared to stop there).
+2. Whether avgOvernightHrv and hrvStatus are populated in 2026 rows —
+   they were empty in every 2025 row I checked.

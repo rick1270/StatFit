@@ -90,6 +90,7 @@ requirements.txt       — pinned dependencies (regenerate with `pip freeze` aft
 CLAUDE.md              — this file
 README.md              — current state and setup instructions
 CHANGELOG.md           — session changes and decisions
+dev_Instructions       — Rick's original spec for the Daily tab (columns, primary-activity rules)
 ```
 
 `state/` and `data/` are created at runtime (gitignored) — not present in a fresh clone until
