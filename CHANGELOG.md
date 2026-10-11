@@ -46,6 +46,14 @@
 - **Fallback schedule**: Cloud Scheduler `statfit-hourly` changed from hourly to every 6 hours
   (`0 */6 * * *` UTC). Kept as a safety net for missed notifications and for sleep/weight data,
   which don't generate the activity notification. Job name left as-is to avoid recreating it.
+- **Phone setup verified (2026-10-11)**: Tasker + AutoNotification configured to fire on *all*
+  Garmin Connect notifications (extra triggers are harmless — skipped by the in-progress /
+  120s debounce check). First phone-triggered run (`statfit-sync-kdv7v`) completed successfully.
+  Early phone attempts returned 405/404 (GET instead of POST) and 401 (token mismatch) before the
+  Tasker task was corrected.
+- **Trigger logging fix**: set `PYTHONUNBUFFERED=1` in `trigger/Dockerfile` — gunicorn was
+  buffering `print()` output, so Started/Skipped lines reached Cloud Logging minutes late,
+  making it hard to match phone requests to job executions. Redeployed `statfit-trigger`.
 
 ---
 
