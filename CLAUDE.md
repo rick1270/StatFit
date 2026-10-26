@@ -85,6 +85,9 @@ statfit/
                                (see Daily Tab section below)
   cloud_state.py             — download_state()/upload_state(): mirrors state/ to/from GCS,
                                used only by cloud_run_entrypoint.py
+  splits.py                   — builds "Splits" tab rows (per-mile splits, computed in
+                               fit_decoder._mile_splits) and fills treadmill elevation from the
+                               Planned tab (see Splits Tab section below)
 requirements.txt       — pinned dependencies (regenerate with `pip freeze` after adding a package)
 .env.example           — template for required secrets
 CLAUDE.md              — this file
@@ -142,6 +145,32 @@ day's primary). Columns: `week_start`, `runs`, `miles`, `run_min`, `avg_pace`, `
   populated even within 2026 (~46% of rows) — likely a device/feature that came online partway
   through the year.
 
+### Splits Tab
+
+One row per run (`sport == running`, outdoor and treadmill), keyed on `activity_id`, upserted by
+`sync_activities()` like Activities/Laps. Columns: `activity_id, date, activity_type,
+distance_mi, elev_source, partial_mi, partial_pace, partial_hr, partial_elev_ft`, then
+`mile_N_pace, mile_N_hr, mile_N_elev_ft` for each full mile.
+- Computed in `fit_decoder._mile_splits()` from the record stream: each mile crossing is
+  interpolated between samples. Pace is **elapsed** time (pauses included — Rick's choice), HR is
+  time-weighted (gaps > 60s skipped), elevation is **net** change in feet (end − start).
+- Partial mile = leftover after the last full mile; dropped if < 0.05 mi (`MIN_PARTIAL_MI`).
+- Partial columns come **before** the mile columns and are always present (blank if dropped):
+  `upsert_rows()` appends unseen columns at the right, so `mile_11_*` etc. land after the
+  existing mile columns when a longer run shows up.
+- Treadmill: record distances are the watch's wrist estimate; Garmin replaces the session total
+  with the treadmill's distance when entered at save. `_mile_splits()` scales record distances to
+  the session total so splits match Activities/Daily and Planned's miles. The watch's error is
+  assumed uniform across the run.
+- Treadmill elevation (`elev_source = planned`): `splits.fill_treadmill_elevation()` derives net
+  climb per mile from the Planned tab's segments (distance × incline), matched by date when
+  there's exactly one treadmill plan and one treadmill run that day. Assumes the plan was run as
+  written. Miles beyond the plan stay blank. Run after every rebuild (`build_daily.py`,
+  `cloud_run_entrypoint.py`), so a plan entered after the run still lands — and a re-synced row
+  (whose upsert blanks these cells) gets refilled.
+- Activities with no record stream (manual Garmin Connect entries) get no Splits row.
+- Backfilled 2026-10-26 for all existing runs.
+
 ### Tabs StatFit Doesn't Write
 
 Added by hand / by other Claude sessions (2026-10). StatFit code never touches them, but some
@@ -156,7 +185,9 @@ depend on StatFit's output:
 - **Dashboard** — settings + trend/projection/race-estimate formulas, all over Trend Data.
 - **Labs** — manually entered lab results, one test per row.
 - **Update Log / Check-In / Planned** — written by a separate daily-briefing assistant.
-  Planned holds Claude-prescribed treadmill plans (incline isn't recorded by the device). Its
+  Planned holds Claude-prescribed treadmill plans (incline isn't recorded by the device); StatFit
+  reads it (never writes) to fill treadmill elevation in Splits — `segments` must keep the
+  `0.50-2.75 @ 4.2mph 1.0%` format (falls back to `avg_incline_pct` over `distance_mi`). Its
   pace/time columns must be written as text (`14:23`), not user-entered — Sheets parses `43:08`
   as 43 hours.
 
@@ -195,15 +226,15 @@ depend on StatFit's output:
 
 - Raw per-second FIT record streams are **never** synced to Sheets — only `session` and `lap`
   summary messages, plus a few numbers derived from records at decode time (currently
-  `hr_first_half`/`hr_second_half`). Sheets isn't built for thousands of rows per activity; revisit only if a
+  `hr_first_half`/`hr_second_half` and the Splits tab). Sheets isn't built for thousands of rows per activity; revisit only if a
   specific need for second-by-second data comes up.
 - Sheet columns are **not fixed** — `sheets_writer.upsert_rows()` appends new columns as new FIT
   fields are encountered across activity types/devices. This is a deliberate v1 choice: pull
   everything for now, prune to a curated subset of columns once real output has been reviewed.
 - `state/sync_state.json` holds `last_synced_date`; deleting it forces a full re-sync back to
   `INITIAL_SYNC_DAYS` (default 90, set in `.env`).
-- Activities, Laps, Sleep, and Weight are separate Sheet tabs, each keyed on its own field
-  (`activity_id`, `lap_key`, `date`, `date` respectively) for upsert matching.
+- Activities, Laps, Splits, Sleep, and Weight are separate Sheet tabs, each keyed on its own field
+  (`activity_id`, `lap_key`, `activity_id`, `date`, `date` respectively) for upsert matching.
 
 ---
 

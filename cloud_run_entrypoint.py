@@ -2,7 +2,7 @@ import os
 import sys
 import traceback
 
-from statfit import cloud_state, daily, sheets_writer, sync
+from statfit import cloud_state, daily, sheets_writer, splits, sync
 
 BUCKET = os.environ["STATFIT_STATE_BUCKET"]
 
@@ -27,6 +27,8 @@ def main() -> None:
         print(f"Built Daily tab: {n} rows.")
         n = daily.build_weekly(sheet)
         print(f"Built Weekly tab: {n} rows.")
+        n = splits.fill_treadmill_elevation(sheet)
+        print(f"Filled treadmill elevation from Planned: {n} runs.")
     except Exception:
         traceback.print_exc()
         failed = True

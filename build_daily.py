@@ -1,4 +1,4 @@
-from statfit import daily, sheets_writer
+from statfit import daily, sheets_writer, splits
 
 if __name__ == "__main__":
     sheet = sheets_writer.connect_sheet()
@@ -6,3 +6,5 @@ if __name__ == "__main__":
     print(f"Built Daily tab: {n} rows.")
     n = daily.build_weekly(sheet)
     print(f"Built Weekly tab: {n} rows.")
+    n = splits.fill_treadmill_elevation(sheet)
+    print(f"Filled treadmill elevation from Planned: {n} runs.")

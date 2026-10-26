@@ -1,5 +1,21 @@
 # StatFit Changelog
 
+## Session 2026-10-26 (sheet review + per-mile splits)
+
+### Changes
+- **Sheet review**: documented the tabs StatFit doesn't write (Dashboard, Trend Data, Labs,
+  Update Log, Check-In, Planned) in CLAUDE.md. Trend Data references Daily/Weekly columns by
+  letter — new Daily/Weekly columns must be appended, never inserted. Found Update Log's header
+  one column short and Planned's pace/time entered as hours (`43:08` → 43h).
+- **Splits tab**: one row per run with `mile_N_pace` / `_hr` / `_elev_ft` and a `partial_*`
+  set for the leftover (dropped under 0.05 mi). Decisions: one row per run (not per mile), net
+  elevation (not gain/loss), elapsed pace (pauses included).
+- **Treadmill distance scaling**: every record/session distance mismatch among local runs (>20 m) was a
+  treadmill run (session total replaced by the entered treadmill distance) or a manual entry
+  with no records. Treadmill splits scale record distances to the session total.
+- **Treadmill elevation from Planned**: distance × incline per plan segment, refilled every
+  rebuild.
+
 ## Session 2026-10-11 (Daily additions + Weekly tab)
 
 ### Changes

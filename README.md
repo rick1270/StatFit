@@ -14,10 +14,11 @@ temperature, precise laps, etc.).
   into plain dicts using [fitparse]. Field sets vary by device/activity type — decoded fields are
   the FIT SDK's own names. Fields fitparse can't map to a known name show up as `unknown_<N>`; you
   can cross-reference Garmin's FIT SDK profile later if a specific one turns out to matter.
-  Raw per-second record streams are **not** decoded — Sheets isn't built for thousands of rows per
-  activity. Revisit if you need second-by-second data.
-- `statfit/sheets_writer.py` — upserts rows into Google Sheet tabs (`Activities`, `Laps`, `Sleep`,
-  `Weight`). New fields encountered get appended as new columns automatically, since the FIT field
+  Raw per-second record streams are **not** written to Sheets — Sheets isn't built for thousands of
+  rows per activity. They're only read to derive summaries: first/second-half HR and per-mile
+  splits.
+- `statfit/sheets_writer.py` — upserts rows into Google Sheet tabs (`Activities`, `Laps`, `Splits`,
+  `Sleep`, `Weight`). New fields encountered get appended as new columns automatically, since the FIT field
   set isn't fixed up front — this is v1's "get everything, narrow down later" approach.
 - `statfit/sync.py` — orchestrates an incremental sync: tracks the last-synced date in
   `state/sync_state.json` and only fetches new data since then.
@@ -27,6 +28,9 @@ temperature, precise laps, etc.).
   and first- vs second-half HR (drift). Also builds a **Weekly** tab (runs, miles, time, pace,
   time-weighted avg HR, long run, cadence per Monday-starting week). Both fully rebuilt each run
   via `build_daily.py` (not incremental like the other tabs).
+- `statfit/splits.py` — **Splits** tab: one row per run with pace (elapsed), avg HR, and net
+  elevation (ft) for each mile, plus a partial final mile with its distance. Treadmill runs get
+  elevation from the Claude-prescribed inclines in the **Planned** tab.
 - `cloud_run_entrypoint.py` / `statfit/cloud_state.py` — hosted execution via a Google
   Cloud Run Job, triggered on demand when Garmin Connect notifies that an activity is ready
   (plus a 6-hourly fallback schedule) (see Deployment section in `CLAUDE.md`). Since Cloud Run Jobs don't keep a local

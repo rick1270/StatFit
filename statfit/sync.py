@@ -2,7 +2,7 @@ import datetime
 import json
 from typing import Any
 
-from statfit import config, fit_decoder, garmin_client, sheets_writer
+from statfit import config, fit_decoder, garmin_client, sheets_writer, splits
 
 DATE_FMT = "%Y-%m-%d"
 
@@ -31,10 +31,12 @@ def _flatten_scalars(d: dict[str, Any]) -> dict[str, Any]:
 def sync_activities(client, sheet, start_date: str, end_date: str) -> int:
     activities_ws = sheets_writer.ensure_worksheet(sheet, "Activities")
     laps_ws = sheets_writer.ensure_worksheet(sheet, "Laps")
+    splits_ws = sheets_writer.ensure_worksheet(sheet, splits.TAB)
 
     activities = garmin_client.list_activities_since(client, start_date, end_date)
     activity_rows = []
     lap_rows = []
+    split_rows = []
 
     for activity in activities:
         activity_id = activity["activityId"]
@@ -59,10 +61,15 @@ def sync_activities(client, sheet, start_date: str, end_date: str) -> int:
             lap_row.update(lap)
             lap_rows.append(lap_row)
 
+        if decoded["splits"]:
+            split_rows.append(splits.build_row(activity_id, row, decoded["splits"]))
+
     if activity_rows:
         sheets_writer.upsert_rows(activities_ws, activity_rows, key_field="activity_id")
     if lap_rows:
         sheets_writer.upsert_rows(laps_ws, lap_rows, key_field="lap_key")
+    if split_rows:
+        sheets_writer.upsert_rows(splits_ws, split_rows, key_field="activity_id")
 
     return len(activity_rows)
 
