@@ -137,10 +137,28 @@ day's primary). Columns: `week_start`, `runs`, `miles`, `run_min`, `avg_pace`, `
   `date` from `calendarDate` but then overwrites it with the entry's own `date` field during
   `_flatten_scalars`), so `daily.py` joins on `calendarDate` instead. Known, not worth fixing
   since `calendarDate` works fine.
-- Known gap as of 2026-09-22: Weight has no rows after 2026-08-05 — Rick is tracking that
-  separately (upstream/device issue, not a StatFit bug). `avgOvernightHrv`/`hrvStatus` are also
-  only partially populated even within 2026 (~46% of rows) — likely a device/feature that came
-  online partway through the year.
+- ~~Weight has no rows after 2026-08-05~~ — resolved upstream; entries resumed (14 rows
+  2026-08-06 → 2026-10-26 as of 2026-10-26). `avgOvernightHrv`/`hrvStatus` are only partially
+  populated even within 2026 (~46% of rows) — likely a device/feature that came online partway
+  through the year.
+
+### Tabs StatFit Doesn't Write
+
+Added by hand / by other Claude sessions (2026-10). StatFit code never touches them, but some
+depend on StatFit's output:
+
+- **Trend Data** — `ARRAYFORMULA`s over Daily and Weekly. **They reference columns by letter**:
+  Daily `A,I,J,L,M,N,O,Q` (date, weight_lbs, body_fat_pct, activity_type, distance_mi,
+  duration_min, pace_min_mi, avg_hr) and Weekly `A,C,E,F,G` (week_start, miles, avg_pace, avg_hr,
+  long_run_mi). **Only append new Daily/Weekly columns at the end — never insert or reorder**,
+  or Trend Data silently reads the wrong data (no error). If a reorder is unavoidable, update the
+  Trend Data formulas in the same change.
+- **Dashboard** — settings + trend/projection/race-estimate formulas, all over Trend Data.
+- **Labs** — manually entered lab results, one test per row.
+- **Update Log / Check-In / Planned** — written by a separate daily-briefing assistant.
+  Planned holds Claude-prescribed treadmill plans (incline isn't recorded by the device). Its
+  pace/time columns must be written as text (`14:23`), not user-entered — Sheets parses `43:08`
+  as 43 hours.
 
 ## Known Issues
 
