@@ -1,5 +1,15 @@
 # StatFit Changelog
 
+## Session 2026-10-28 (blood pressure)
+
+### Changes
+- **omramin**: installed on the Mac (`~/.venvs/omramin`) to copy Omron cuff readings from
+  OMRON connect to Garmin Connect. Run by hand; not scheduled.
+- **BloodPressure tab**: new `sync.sync_blood_pressure()` (wired into `sync.run()`), one row
+  per reading keyed on the GMT timestamp. Backfilled a year — Garmin had one reading.
+- **Daily**: appended `bp_systolic`, `bp_diastolic`, `bp_pulse`, `bp_readings` at the end
+  (Trend Data's column letters unchanged). Multiple readings a day are averaged.
+
 ## Session 2026-10-26 (sheet review + per-mile splits)
 
 ### Changes

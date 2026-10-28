@@ -49,3 +49,7 @@ def get_sleep(client: garminconnect.Garmin, date: str) -> dict:
 
 def get_body_composition(client: garminconnect.Garmin, start_date: str, end_date: str) -> dict:
     return client.get_body_composition(start_date, end_date)
+
+
+def get_blood_pressure(client: garminconnect.Garmin, start_date: str, end_date: str) -> dict:
+    return client.get_blood_pressure(start_date, end_date)

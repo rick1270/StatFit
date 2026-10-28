@@ -1,7 +1,7 @@
 # StatFit
 
-Syncs Garmin Connect data (activities decoded from raw FIT files, sleep, weight/body composition)
-to a Google Sheet — like `life-fitness`'s Strava sync, but pulling richer metrics directly from
+Syncs Garmin Connect data (activities decoded from raw FIT files, sleep, weight/body composition,
+blood pressure) to a Google Sheet — like `life-fitness`'s Strava sync, but pulling richer metrics directly from
 FIT files that Strava's API doesn't expose (running dynamics, training effect, respiration,
 temperature, precise laps, etc.).
 
@@ -9,7 +9,7 @@ temperature, precise laps, etc.).
 
 - `statfit/garmin_client.py` — logs into Garmin Connect (session token cached locally so you're
   not re-authenticating/hitting MFA every run), lists activities, downloads original `.fit` files,
-  fetches sleep and body composition data.
+  fetches sleep, body composition, and blood pressure data.
 - `statfit/fit_decoder.py` — decodes a `.fit` file's `session` (activity summary) and `lap` messages
   into plain dicts using [fitparse]. Field sets vary by device/activity type — decoded fields are
   the FIT SDK's own names. Fields fitparse can't map to a known name show up as `unknown_<N>`; you
@@ -18,14 +18,14 @@ temperature, precise laps, etc.).
   rows per activity. They're only read to derive summaries: first/second-half HR and per-mile
   splits.
 - `statfit/sheets_writer.py` — upserts rows into Google Sheet tabs (`Activities`, `Laps`, `Splits`,
-  `Sleep`, `Weight`). New fields encountered get appended as new columns automatically, since the FIT field
+  `Sleep`, `Weight`, `BloodPressure`). New fields encountered get appended as new columns automatically, since the FIT field
   set isn't fixed up front — this is v1's "get everything, narrow down later" approach.
 - `statfit/sync.py` — orchestrates an incremental sync: tracks the last-synced date in
   `state/sync_state.json` and only fetches new data since then.
 - `statfit/daily.py` — builds a derived **Daily** tab: one row per calendar day (newest first),
   combining sleep, weight, and primary-activity metrics from the raw Activities/Sleep/Weight tabs
   into a compact, easy-to-scan view, including body fat / muscle mass, running cadence (steps/min)
-  and first- vs second-half HR (drift). Also builds a **Weekly** tab (runs, miles, time, pace,
+  first- vs second-half HR (drift), and blood pressure (daily average of readings). Also builds a **Weekly** tab (runs, miles, time, pace,
   time-weighted avg HR, long run, cadence per Monday-starting week). Both fully rebuilt each run
   via `build_daily.py` (not incremental like the other tabs).
 - `statfit/splits.py` — **Splits** tab: one row per run with pace (elapsed), avg HR, and net
@@ -78,3 +78,8 @@ temperature, precise laps, etc.).
   the same undocumented endpoints the mobile app uses. It can break if Garmin changes their backend.
 - Session tokens are cached in `state/.garth/` to avoid repeated logins/MFA prompts.
 - Downloaded `.fit` files are cached in `data/fit_files/` (gitignored).
+- Blood pressure comes from an Omron cuff via [omramin] (OMRON connect → Garmin Connect), run
+  separately on the Mac from `~/.venvs/omramin` — StatFit only reads what lands in Garmin.
+  Readings show up as `sourceType = MANUAL`.
+
+[omramin]: https://github.com/bugficks/omramin

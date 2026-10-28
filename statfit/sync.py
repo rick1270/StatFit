@@ -115,6 +115,30 @@ def sync_weight(client, sheet, start_date: str, end_date: str) -> int:
     return len(rows)
 
 
+def sync_blood_pressure(client, sheet, start_date: str, end_date: str) -> int:
+    """One row per reading (several a day is normal), keyed on the GMT timestamp —
+    `version` looks like an upload timestamp, so it could change on re-upload."""
+    bp_ws = sheets_writer.ensure_worksheet(sheet, "BloodPressure")
+
+    data = garmin_client.get_blood_pressure(client, start_date, end_date)
+
+    rows = []
+    for summary in (data or {}).get("measurementSummaries") or []:
+        for m in summary.get("measurements") or []:
+            local = m.get("measurementTimestampLocal") or ""
+            row = {
+                "measurement_key": m.get("measurementTimestampGMT"),
+                "date": local[:10],
+                "time_local": local[11:16],
+            }
+            row.update(_flatten_scalars(m))
+            rows.append(row)
+
+    if rows:
+        sheets_writer.upsert_rows(bp_ws, rows, key_field="measurement_key")
+    return len(rows)
+
+
 def run() -> None:
     state = load_state()
     start_date = state["last_synced_date"]
@@ -126,8 +150,10 @@ def run() -> None:
     n_activities = sync_activities(client, sheet, start_date, end_date)
     n_sleep = sync_sleep(client, sheet, start_date, end_date)
     n_weight = sync_weight(client, sheet, start_date, end_date)
+    n_bp = sync_blood_pressure(client, sheet, start_date, end_date)
 
     save_state({"last_synced_date": end_date})
 
-    print(f"Synced {n_activities} activities, {n_sleep} sleep days, {n_weight} weight entries "
+    print(f"Synced {n_activities} activities, {n_sleep} sleep days, {n_weight} weight entries, "
+          f"{n_bp} blood pressure readings "
           f"({start_date} to {end_date}).")

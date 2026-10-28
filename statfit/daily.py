@@ -11,6 +11,7 @@ COLUMNS = [
     "activity_type", "distance_mi", "duration_min", "pace_min_mi", "cadence_spm",
     "avg_hr", "hr_first_half", "hr_second_half", "hr_drift", "max_hr", "temp_f",
     "training_effect", "fished", "dove", "activity_count",
+    "bp_systolic", "bp_diastolic", "bp_pulse", "bp_readings",
 ]
 
 WEEKLY_COLUMNS = [
@@ -90,10 +91,19 @@ def _cadence_spm(activity: dict[str, str]) -> Optional[float]:
     return 2 * (cadence + (_float(activity.get("avg_fractional_cadence")) or 0.0))
 
 
+def _mean(values: list[Optional[float]]) -> Optional[float]:
+    values = [v for v in values if v is not None]
+    return sum(values) / len(values) if values else None
+
+
 def build_daily_rows(sheet: gspread.Spreadsheet) -> list[dict[str, Any]]:
     activities = _rows_as_dicts(sheet.worksheet("Activities"))
     sleep = _rows_as_dicts(sheet.worksheet("Sleep"))
     weight = _rows_as_dicts(sheet.worksheet("Weight"))
+    try:
+        blood_pressure = _rows_as_dicts(sheet.worksheet("BloodPressure"))
+    except gspread.WorksheetNotFound:
+        blood_pressure = []
 
     activities_by_date: dict[str, list[dict[str, str]]] = {}
     for a in activities:
@@ -105,7 +115,12 @@ def build_daily_rows(sheet: gspread.Spreadsheet) -> list[dict[str, Any]]:
     sleep_by_date = {s["calendarDate"]: s for s in sleep if s.get("calendarDate")}
     weight_by_date = {w["calendarDate"]: w for w in weight if w.get("calendarDate")}
 
-    all_dates = set(activities_by_date) | set(sleep_by_date) | set(weight_by_date)
+    bp_by_date: dict[str, list[dict[str, str]]] = {}
+    for b in blood_pressure:
+        if b.get("date"):
+            bp_by_date.setdefault(b["date"], []).append(b)
+
+    all_dates = set(activities_by_date) | set(sleep_by_date) | set(weight_by_date) | set(bp_by_date)
 
     rows = []
     for date in sorted(all_dates, reverse=True):
@@ -138,6 +153,12 @@ def build_daily_rows(sheet: gspread.Spreadsheet) -> list[dict[str, Any]]:
         deep_s = _float(s.get("deepSleepSeconds"))
         rem_s = _float(s.get("remSleepSeconds"))
 
+        # Several readings a day get averaged (the usual home-BP practice).
+        bp = bp_by_date.get(date, [])
+        systolic = _mean([_float(b.get("systolic")) for b in bp])
+        diastolic = _mean([_float(b.get("diastolic")) for b in bp])
+        pulse = _mean([_float(b.get("pulse")) for b in bp])
+
         fished = any("fishing" in (a.get("activity_type") or "").lower() for a in day_activities)
         dove = any("diving" in (a.get("activity_type") or "").lower() for a in day_activities)
 
@@ -168,6 +189,10 @@ def build_daily_rows(sheet: gspread.Spreadsheet) -> list[dict[str, Any]]:
             "fished": "TRUE" if fished else "FALSE",
             "dove": "TRUE" if dove else "FALSE",
             "activity_count": len(day_activities),
+            "bp_systolic": _round(systolic, 0),
+            "bp_diastolic": _round(diastolic, 0),
+            "bp_pulse": _round(pulse, 0),
+            "bp_readings": len(bp) if bp else "",
         })
 
     return rows

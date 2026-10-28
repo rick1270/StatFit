@@ -111,6 +111,8 @@ data.
 
 - Run manually after `main.py` syncs new data: `./venv/bin/python build_daily.py` (builds both
   Daily and Weekly). In the cloud, `cloud_run_entrypoint.py` rebuilds both after every sync.
+- Blood pressure: `bp_systolic` / `bp_diastolic` / `bp_pulse` are the mean of that day's
+  BloodPressure readings (keyed on the reading's local date); `bp_readings` is the count.
 - Not wired into `sync.run()` itself — local runs need `build_daily.py` by hand.
 - Body composition: `body_fat_pct` is Weight.`bodyFat` (already %); `muscle_lbs` is
   Weight.`muscleMass` (grams) / 453.592.
@@ -170,6 +172,20 @@ distance_mi, elev_source, partial_mi, partial_pace, partial_hr, partial_elev_ft`
   (whose upsert blanks these cells) gets refilled.
 - Activities with no record stream (manual Garmin Connect entries) get no Splits row.
 - Backfilled 2026-10-26 for all existing runs.
+
+### BloodPressure Tab
+
+One row per reading, keyed on `measurement_key` (= `measurementTimestampGMT`; `version` looks
+like an upload timestamp, so it's not a stable key), upserted by `sync_blood_pressure()`.
+Leading columns `date` / `time_local` come from `measurementTimestampLocal`, then every scalar
+field Garmin returns (`systolic`, `diastolic`, `pulse`, `category`, `sourceType`, ...).
+- Source: Rick's Omron cuff → OMRON connect → Garmin Connect via [omramin](https://github.com/bugficks/omramin),
+  installed at `~/.venvs/omramin` on the Mac (tokens in a plaintext file,
+  `--keyring-backend file`; pass that flag on every command). Not automated — readings only
+  reach Garmin (and then StatFit) when `omramin --keyring-backend file sync` is run.
+- Backfilled 2026-10-28 over the prior year — Garmin had one reading (that day's). If older
+  Omron history gets pushed to Garmin later, it's behind the sync watermark: rerun
+  `sync.sync_blood_pressure()` with a wide date range.
 
 ### Tabs StatFit Doesn't Write
 
@@ -233,8 +249,9 @@ depend on StatFit's output:
   everything for now, prune to a curated subset of columns once real output has been reviewed.
 - `state/sync_state.json` holds `last_synced_date`; deleting it forces a full re-sync back to
   `INITIAL_SYNC_DAYS` (default 90, set in `.env`).
-- Activities, Laps, Splits, Sleep, and Weight are separate Sheet tabs, each keyed on its own field
-  (`activity_id`, `lap_key`, `activity_id`, `date`, `date` respectively) for upsert matching.
+- Activities, Laps, Splits, Sleep, Weight, and BloodPressure are separate Sheet tabs, each keyed
+  on its own field (`activity_id`, `lap_key`, `activity_id`, `date`, `date`, `measurement_key`
+  respectively) for upsert matching.
 
 ---
 
