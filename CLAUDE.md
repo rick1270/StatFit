@@ -181,7 +181,9 @@ Leading columns `date` / `time_local` come from `measurementTimestampLocal`, the
 field Garmin returns (`systolic`, `diastolic`, `pulse`, `category`, `sourceType`, ...).
 - Source: Rick's Omron cuff → OMRON connect → Garmin Connect via [omramin](https://github.com/bugficks/omramin),
   installed at `~/.venvs/omramin` on the Mac (tokens in a plaintext file,
-  `--keyring-backend file`; pass that flag on every command). Not automated — readings only
+  `--keyring-backend file`; pass that flag on every command). The file backend needs
+  `keyrings.alt` in that venv (omramin doesn't install it) — without it token saves fail
+  silently and every run re-prompts for passwords. Not automated — readings only
   reach Garmin (and then StatFit) when `omramin --keyring-backend file sync` is run.
 - Fetched with a 30-day lookback behind the watermark (`sync.BP_LOOKBACK_DAYS`): since omramin
   runs by hand, readings reach Garmin late, and a scheduled run may already have advanced the
