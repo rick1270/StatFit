@@ -4,7 +4,7 @@
 
 ### Changes
 - **omramin**: installed on the Mac (`~/.venvs/omramin`) to copy Omron cuff readings from
-  OMRON connect to Garmin Connect. Run by hand; not scheduled.
+  OMRON connect to Garmin Connect. Run by hand at first; moved into the cloud job (below).
 - **BloodPressure tab**: new `sync.sync_blood_pressure()` (wired into `sync.run()`), one row
   per reading keyed on the GMT timestamp. Backfilled a year — Garmin had one reading.
 - **Daily**: appended `bp_systolic`, `bp_diastolic`, `bp_pulse`, `bp_readings` at the end
@@ -20,6 +20,10 @@
   StatFit's `GARMIN_*` env vars ahead of its config — so those are now withheld from it.
   `config.py` also `.strip()`s them (StatFit never hit this; its cached session hasn't needed
   a password login).
+- **Verified 2026-10-29**: execution `statfit-sync-gp5m2` failed on omramin's password prompt
+  (no TTY); after the env-var fix, `statfit-sync-vmtxp` logged into both OMRON and Garmin from
+  the stored tokens, found all 3 readings already present, and exited 0. Scheduled runs since
+  are clean.
 - **Fallback schedule** back to hourly (from 6-hourly), since BP readings have no notification
   trigger.
 
