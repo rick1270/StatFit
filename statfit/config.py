@@ -7,8 +7,9 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / ".env")
 
-GARMIN_EMAIL = os.environ["GARMIN_EMAIL"]
-GARMIN_PASSWORD = os.environ["GARMIN_PASSWORD"]
+# .strip(): the Secret Manager values may carry a trailing newline (the email does).
+GARMIN_EMAIL = os.environ["GARMIN_EMAIL"].strip()
+GARMIN_PASSWORD = os.environ["GARMIN_PASSWORD"].strip()
 
 GOOGLE_SERVICE_ACCOUNT_FILE = os.environ["GOOGLE_SERVICE_ACCOUNT_FILE"]
 GOOGLE_SHEET_ID = os.environ["GOOGLE_SHEET_ID"]

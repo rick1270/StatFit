@@ -16,7 +16,7 @@
 |---|---|
 | GitHub | `https://github.com/rick1270/StatFit` |
 | Local dev | Python venv (`./venv`) — `./venv/bin/python main.py` / `build_daily.py`, unchanged |
-| Hosted runtime | Google Cloud Run Job `statfit-sync`, GCP project `statfit-509421`, region `us-central1`. Triggered on demand by the `statfit-trigger` service (see below), with Cloud Scheduler job `statfit-hourly` as a fallback — despite the name it now runs every 6 hours (`0 */6 * * *` UTC) |
+| Hosted runtime | Google Cloud Run Job `statfit-sync`, GCP project `statfit-509421`, region `us-central1`. Triggered on demand by the `statfit-trigger` service (see below), with Cloud Scheduler job `statfit-hourly` as a fallback, hourly (`0 * * * *` UTC; was every 6 hours 2026-10-10 → 2026-10-29 — back to hourly so Omron BP readings, which have no notification trigger, land within the hour) |
 | Notification trigger | Cloud Run service `statfit-trigger` (`trigger/`), URL `https://statfit-trigger-469071842624.us-central1.run.app`. Tasker + AutoNotification on Rick's Android phone POST to it when Garmin Connect posts "activity ready to view". Public (`--allow-unauthenticated`) but requires header `X-StatFit-Token` matching Secret Manager `statfit-trigger-token`. Runs as `statfit-trigger@statfit-509421.iam.gserviceaccount.com` (only `run.invoker` + `run.viewer` on the `statfit-sync` job). Skips if an execution is running (concurrent runs would race on `sync_state.json` and could duplicate Sheet rows) or started within `DEBOUNCE_SECONDS` (120) |
 | Local secrets | `.env` (Garmin email/password, Sheet ID, service account file path), `service_account.json` (Google service account key) — both gitignored |
 | Cloud secrets | Secret Manager: `statfit-garmin-email`, `statfit-garmin-password`. No JSON key in the cloud — the job runs as `statfit-sync@statfit-509421.iam.gserviceaccount.com` itself (Application Default Credentials); see `statfit/sheets_writer.py::connect_sheet()` |
@@ -68,9 +68,11 @@ build_daily.py         — entry point, calls statfit.daily.build_daily() to (re
 trigger/                — statfit-trigger Cloud Run service (main.py, Dockerfile, requirements.txt):
                           token-checked HTTP endpoint that starts the sync job; own image,
                           not part of the job's image
-cloud_run_entrypoint.py — Cloud Run Job entry point: pulls state/ from GCS, runs sync + daily
-                          build, pushes state/ back, always (see Deployment section above)
-Dockerfile              — container image for the Cloud Run Job
+cloud_run_entrypoint.py — Cloud Run Job entry point: pulls state/ from GCS, runs omramin
+                          (Omron → Garmin), sync + daily build, pushes state/ back, always
+                          (see Deployment section above)
+Dockerfile              — container image for the Cloud Run Job (omramin in its own venv, /opt/omramin)
+omramin-requirements.txt — pinned omramin + deps for that venv (frozen from ~/.venvs/omramin)
 .dockerignore            — excludes venv/, state/, data/, secrets from the image
 statfit/
   config.py            — loads .env, defines paths (state/, data/fit_files/)
@@ -179,15 +181,27 @@ One row per reading, keyed on `measurement_key` (= `measurementTimestampGMT`; `v
 like an upload timestamp, so it's not a stable key), upserted by `sync_blood_pressure()`.
 Leading columns `date` / `time_local` come from `measurementTimestampLocal`, then every scalar
 field Garmin returns (`systolic`, `diastolic`, `pulse`, `category`, `sourceType`, ...).
-- Source: Rick's Omron cuff → OMRON connect → Garmin Connect via [omramin](https://github.com/bugficks/omramin),
-  installed at `~/.venvs/omramin` on the Mac (tokens in a plaintext file,
-  `--keyring-backend file`; pass that flag on every command). The file backend needs
-  `keyrings.alt` in that venv (omramin doesn't install it) — without it token saves fail
-  silently and every run re-prompts for passwords. Not automated — readings only
-  reach Garmin (and then StatFit) when `omramin --keyring-backend file sync` is run.
-- Fetched with a 30-day lookback behind the watermark (`sync.BP_LOOKBACK_DAYS`): since omramin
-  runs by hand, readings reach Garmin late, and a scheduled run may already have advanced the
-  watermark past their date (the 2026-10-28 22:15 reading was missed this way).
+- Source: Rick's Omron cuff (BP5150) → OMRON connect → Garmin Connect via
+  [omramin](https://github.com/bugficks/omramin). Runs in the cloud job before `sync.run()`
+  (`cloud_run_entrypoint.push_omron_readings()`, `sync --days 3`), so every execution — hourly
+  schedule or activity notification — pushes new readings and picks them up in one pass. A
+  failed omramin run marks the execution failed but doesn't block the Garmin sync.
+- omramin's config + login tokens (plaintext, `--keyring-backend file`) live in
+  `gs://statfit-509421-state/state/omramin/` (`config.json`, `config.tokens.json`) and
+  round-trip with the rest of `state/`; OMRON's refresh token is rewritten on each run.
+- StatFit's `GARMIN_*` env vars are withheld from omramin's subprocess: omramin prefers them over
+  its config, and the Secret Manager email has a trailing newline, so it looked up the wrong
+  token entry and fell back to a password login (failed 2026-10-29).
+- **Re-login if omramin's tokens expire** (log shows it trying to prompt): on the Mac, run
+  `~/.venvs/omramin/bin/omramin --keyring-backend file sync --days 1` in Terminal.app (needs a
+  real TTY), then `gcloud storage cp ~/Library/Application\ Support/omramin/config.json
+  ~/Library/Application\ Support/omramin/config.tokens.json gs://statfit-509421-state/state/omramin/`.
+  The Mac copy (`~/.venvs/omramin`, config in `~/Library/Application Support/omramin/`) is only
+  for this; its OMRON token likely goes stale once the cloud copy refreshes. The file keyring
+  needs `keyrings.alt` (omramin doesn't install it — without it token saves fail silently).
+- Fetched with a 30-day lookback behind the watermark (`sync.BP_LOOKBACK_DAYS`): readings can
+  reach Garmin after a run has advanced the watermark past their date (the 2026-10-28 22:15
+  reading was missed this way, back when omramin ran by hand).
 - Backfilled 2026-10-28 over the prior year — Garmin had one reading (that day's). Older Omron
   history pushed to Garmin later is beyond the lookback: rerun `sync.sync_blood_pressure()` with
   a wide date range.
@@ -218,7 +232,7 @@ depend on StatFit's output:
    direct `gcloud run jobs execute` and an actual Cloud Scheduler-triggered run completed
    successfully end-to-end (synced data, rebuilt Daily, state round-tripped through GCS
    correctly). Runs hourly on the `0 * * * *` schedule from here on. (Since 2026-10-10:
-   notification-triggered, with a 6-hourly fallback — see Deployment.)
+   notification-triggered, with a 6-hourly fallback; hourly again since 2026-10-29 — see Deployment.)
 2. Cloud Run's outbound IP is a shared Google NAT range, not a dedicated IP — small chance this
    looks different to Garmin than the local machine's home IP and affects rate-limiting behavior
    (we already hit one transient 429 locally). Mitigated by reusing the cached garth session

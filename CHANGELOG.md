@@ -12,6 +12,16 @@
 - **BP lookback**: a 22:15 reading pushed to Garmin the next morning was skipped — an overnight
   scheduled run had already moved the watermark to the next day. BP now re-fetches 30 days
   behind the watermark every sync (one request; upsert keeps it idempotent).
+- **omramin token saving**: the `file` keyring backend needs `keyrings.alt`, which omramin
+  doesn't install — saves failed silently, so every run re-prompted. Installed it on the Mac.
+- **omramin in the cloud**: the Cloud Run job now runs omramin (own venv, pinned in
+  `omramin-requirements.txt`) before `sync.run()`, with its config + tokens in GCS `state/omramin/`.
+  First attempt failed: the Secret Manager Garmin email has a trailing newline, and omramin read
+  StatFit's `GARMIN_*` env vars ahead of its config — so those are now withheld from it.
+  `config.py` also `.strip()`s them (StatFit never hit this; its cached session hasn't needed
+  a password login).
+- **Fallback schedule** back to hourly (from 6-hourly), since BP readings have no notification
+  trigger.
 
 ## Session 2026-10-26 (sheet review + per-mile splits)
 

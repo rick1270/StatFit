@@ -33,7 +33,7 @@ temperature, precise laps, etc.).
   elevation from the Claude-prescribed inclines in the **Planned** tab.
 - `cloud_run_entrypoint.py` / `statfit/cloud_state.py` — hosted execution via a Google
   Cloud Run Job, triggered on demand when Garmin Connect notifies that an activity is ready
-  (plus a 6-hourly fallback schedule) (see Deployment section in `CLAUDE.md`). Since Cloud Run Jobs don't keep a local
+  (plus an hourly fallback schedule) (see Deployment section in `CLAUDE.md`). Since Cloud Run Jobs don't keep a local
   disk between runs, `cloud_state.py` mirrors `state/` to/from a GCS bucket before and after each
   run. `sheets_writer.connect_sheet()` uses the service account JSON key locally, but falls back
   to Application Default Credentials in the cloud, so no key file needs to leave the laptop.
@@ -78,8 +78,8 @@ temperature, precise laps, etc.).
   the same undocumented endpoints the mobile app uses. It can break if Garmin changes their backend.
 - Session tokens are cached in `state/.garth/` to avoid repeated logins/MFA prompts.
 - Downloaded `.fit` files are cached in `data/fit_files/` (gitignored).
-- Blood pressure comes from an Omron cuff via [omramin] (OMRON connect → Garmin Connect), run
-  separately on the Mac from `~/.venvs/omramin` — StatFit only reads what lands in Garmin.
-  Readings show up as `sourceType = MANUAL`.
+- Blood pressure comes from an Omron cuff via [omramin] (OMRON connect → Garmin Connect), which
+  the Cloud Run job runs (in its own venv) before each sync. Readings show up in Garmin as
+  `sourceType = MANUAL`.
 
 [omramin]: https://github.com/bugficks/omramin
