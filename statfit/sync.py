@@ -6,6 +6,11 @@ from statfit import config, fit_decoder, garmin_client, sheets_writer, splits
 
 DATE_FMT = "%Y-%m-%d"
 
+# omramin pushes Omron readings to Garmin only when run by hand, so readings can
+# land days after they were taken — behind the watermark. Re-fetching a window
+# is one request and idempotent (upsert on measurement_key).
+BP_LOOKBACK_DAYS = 30
+
 
 def _today() -> datetime.date:
     return datetime.datetime.now(config.LOCAL_TZ).date()
@@ -150,7 +155,9 @@ def run() -> None:
     n_activities = sync_activities(client, sheet, start_date, end_date)
     n_sleep = sync_sleep(client, sheet, start_date, end_date)
     n_weight = sync_weight(client, sheet, start_date, end_date)
-    n_bp = sync_blood_pressure(client, sheet, start_date, end_date)
+    bp_start = (datetime.datetime.strptime(start_date, DATE_FMT).date()
+                - datetime.timedelta(days=BP_LOOKBACK_DAYS)).strftime(DATE_FMT)
+    n_bp = sync_blood_pressure(client, sheet, bp_start, end_date)
 
     save_state({"last_synced_date": end_date})
 

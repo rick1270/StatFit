@@ -183,9 +183,12 @@ field Garmin returns (`systolic`, `diastolic`, `pulse`, `category`, `sourceType`
   installed at `~/.venvs/omramin` on the Mac (tokens in a plaintext file,
   `--keyring-backend file`; pass that flag on every command). Not automated — readings only
   reach Garmin (and then StatFit) when `omramin --keyring-backend file sync` is run.
-- Backfilled 2026-10-28 over the prior year — Garmin had one reading (that day's). If older
-  Omron history gets pushed to Garmin later, it's behind the sync watermark: rerun
-  `sync.sync_blood_pressure()` with a wide date range.
+- Fetched with a 30-day lookback behind the watermark (`sync.BP_LOOKBACK_DAYS`): since omramin
+  runs by hand, readings reach Garmin late, and a scheduled run may already have advanced the
+  watermark past their date (the 2026-10-28 22:15 reading was missed this way).
+- Backfilled 2026-10-28 over the prior year — Garmin had one reading (that day's). Older Omron
+  history pushed to Garmin later is beyond the lookback: rerun `sync.sync_blood_pressure()` with
+  a wide date range.
 
 ### Tabs StatFit Doesn't Write
 

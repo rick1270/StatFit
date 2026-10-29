@@ -9,6 +9,9 @@
   per reading keyed on the GMT timestamp. Backfilled a year — Garmin had one reading.
 - **Daily**: appended `bp_systolic`, `bp_diastolic`, `bp_pulse`, `bp_readings` at the end
   (Trend Data's column letters unchanged). Multiple readings a day are averaged.
+- **BP lookback**: a 22:15 reading pushed to Garmin the next morning was skipped — an overnight
+  scheduled run had already moved the watermark to the next day. BP now re-fetches 30 days
+  behind the watermark every sync (one request; upsert keeps it idempotent).
 
 ## Session 2026-10-26 (sheet review + per-mile splits)
 
