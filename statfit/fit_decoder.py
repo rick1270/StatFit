@@ -21,6 +21,9 @@ FEET_PER_METER = 3.28084
 # A leftover after the last full mile shorter than this is GPS/stop-button
 # noise, not a real partial mile.
 MIN_PARTIAL_MI = 0.05
+# A run stopped this close below a whole mile (Garmin shows "5.00 mi") ends on
+# a full mile rather than a 0.99x partial.
+WHOLE_MILE_TOLERANCE_MI = 0.005
 
 
 def _serialize(value: Any) -> Any:
@@ -125,6 +128,9 @@ def _mile_splits(fit_file: fitparse.FitFile, indoor: bool, total_distance: float
         dists = [d * scale for d in dists]
 
     total_mi = dists[-1] / METERS_PER_MILE
+    if abs(total_mi - round(total_mi)) < WHOLE_MILE_TOLERANCE_MI:
+        # _interp clamps, so a last edge just past the final sample ends there.
+        total_mi = float(round(total_mi))
     full_miles = int(total_mi)
     edges = [float(k) for k in range(full_miles + 1)]
     if total_mi - full_miles >= MIN_PARTIAL_MI:

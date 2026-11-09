@@ -159,6 +159,9 @@ distance_mi, elev_source, partial_mi, partial_pace, partial_hr, partial_elev_ft`
   interpolated between samples. Pace is **elapsed** time (pauses included — Rick's choice), HR is
   time-weighted (gaps > 60s skipped), elevation is **net** change in feet (end − start).
 - Partial mile = leftover after the last full mile; dropped if < 0.05 mi (`MIN_PARTIAL_MI`).
+- A total within 0.005 mi of a whole mile (`WHOLE_MILE_TOLERANCE_MI`; Garmin shows it as
+  "5.00") snaps to it, so a run stopped a few meters short ends on a full mile instead of a
+  "1.00" partial. Fixed 2026-11-09; the 9 affected rows were recomputed.
 - Partial columns come **before** the mile columns and are always present (blank if dropped):
   `upsert_rows()` appends unseen columns at the right, so `mile_11_*` etc. land after the
   existing mile columns when a longer run shows up.

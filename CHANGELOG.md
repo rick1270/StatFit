@@ -13,6 +13,11 @@
   hourly run: 221 readings in Garmin, 22 distinct. Fixed by running omramin with `TZ` set to
   `config.LOCAL_TZ` (`tzdata` added to the image). Redeployed, deleted the 199 duplicates
   (kept the earliest upload of each; all copies matched), verified a run adds nothing.
+- **Splits: whole-mile runs showed a "1.00" partial**: a run stopped a few meters short of a
+  whole mile (e.g. 8043.2 m = 4.998 mi, shown by Garmin as 5.00) was split into 4 miles plus a
+  0.998 partial. Totals within 0.005 mi of a whole mile now snap to it. Recomputed the 9
+  affected rows (treadmill elevation refilled from Planned). Short treadmill runs under a mile
+  (0.9x) are genuinely partial and unchanged.
 
 ## Session 2026-10-28 (blood pressure)
 
