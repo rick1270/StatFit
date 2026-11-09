@@ -18,14 +18,20 @@ def push_omron_readings() -> bool:
     re-login on the Mac and re-upload (see CLAUDE.md).
 
     StatFit's GARMIN_* env vars are withheld: omramin prefers them over its own
-    config, and a mismatched email means it can't find its saved tokens."""
+    config, and a mismatched email means it can't find its saved tokens.
+
+    TZ is set to the local timezone: omramin builds its OMRON window from the
+    system clock (UTC here) but queries Garmin by those dates as local dates,
+    so under UTC an evening reading at the window's edge is never found in
+    Garmin and gets re-added every run."""
     if not OMRAMIN_CONFIG.exists():
         print("No omramin config in state/; skipping Omron sync.")
         return True
     result = subprocess.run(
         [OMRAMIN, "--config", str(OMRAMIN_CONFIG), "--keyring-backend", "file",
          "sync", "--days", "3"],
-        env={k: v for k, v in os.environ.items() if not k.startswith("GARMIN_")},
+        env={**{k: v for k, v in os.environ.items() if not k.startswith("GARMIN_")},
+             "TZ": config.LOCAL_TZ.key},
         stdin=subprocess.DEVNULL, timeout=180,
     )
     return result.returncode == 0
