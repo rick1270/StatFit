@@ -192,6 +192,12 @@ field Garmin returns (`systolic`, `diastolic`, `pulse`, `category`, `sourceType`
 - StatFit's `GARMIN_*` env vars are withheld from omramin's subprocess: omramin prefers them over
   its config, and the Secret Manager email has a trailing newline, so it looked up the wrong
   token entry and fell back to a password login (failed 2026-10-29).
+- omramin runs with `TZ` = `config.LOCAL_TZ` (Dockerfile installs `tzdata` for it). Under the
+  container's UTC it built its OMRON window from UTC midnight but looked up Garmin by local
+  date, so each evening reading at the window's edge was re-uploaded every hour for ~a day
+  (2026-10-29 → 2026-11-09: 199 duplicates in Garmin Connect, deleted 2026-11-09). StatFit's
+  BloodPressure tab was unaffected (keyed on timestamp). If the "blood pressure readings"
+  count in the sync log ever exceeds the tab's row count, duplicates are back.
 - **Re-login if omramin's tokens expire** (log shows it trying to prompt): on the Mac, run
   `~/.venvs/omramin/bin/omramin --keyring-backend file sync --days 1` in Terminal.app (needs a
   real TTY), then `gcloud storage cp ~/Library/Application\ Support/omramin/config.json

@@ -1,5 +1,19 @@
 # StatFit Changelog
 
+## Session 2026-11-09 (Daily gaps + duplicate BP readings)
+
+### Changes
+- **Daily 11-08/11-09 gaps**: not a sync problem. Garmin has no sleep for the night of
+  11-07→11-08 (empty record from the API); 11-08's only activity was a dive, which never
+  counts as primary, so activity columns are blank by design; no weigh-in that day. 11-09
+  was complete apart from not having an activity yet.
+- **Duplicate BP readings in Garmin Connect**: omramin built its OMRON window from the
+  container's clock (UTC) but queried Garmin by the same dates as local dates. An evening
+  reading at the window's start was never found in Garmin, so it was uploaded again every
+  hourly run: 221 readings in Garmin, 22 distinct. Fixed by running omramin with `TZ` set to
+  `config.LOCAL_TZ` (`tzdata` added to the image). Redeployed, deleted the 199 duplicates
+  (kept the earliest upload of each; all copies matched), verified a run adds nothing.
+
 ## Session 2026-10-28 (blood pressure)
 
 ### Changes
